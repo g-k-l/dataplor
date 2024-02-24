@@ -10,14 +10,26 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2024_02_24_040221) do
+ActiveRecord::Schema[7.1].define(version: 2024_02_24_062149) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
+
+  create_table "_nodes", id: false, force: :cascade do |t|
+    t.bigint "id"
+    t.integer "parent_id"
+  end
+
+  create_table "birds", force: :cascade do |t|
+    t.text "name"
+    t.bigint "nodes_id"
+    t.index ["nodes_id"], name: "index_birds_on_nodes_id"
+  end
 
   create_table "nodes", force: :cascade do |t|
     t.integer "parent_id"
     t.index ["parent_id"], name: "index_nodes_on_parent_id"
   end
 
+  add_foreign_key "birds", "nodes", column: "nodes_id"
   add_foreign_key "nodes", "nodes", column: "parent_id"
 end
