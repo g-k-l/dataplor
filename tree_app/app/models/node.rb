@@ -1,20 +1,22 @@
 class Node < ApplicationRecord
 
-  def self.least_common_ancestor(id_1, id_2)
+  def self.common_ancestor_data(id_1, id_2)
     return nil if id_1.nil? || id_2.nil?
 
     id_1_safe = ActiveRecord::Base.connection.quote(id_1)
     id_2_safe = ActiveRecord::Base.connection.quote(id_2)
 
+    # self.table_name = '_nodes' # for testing
+
     sql = %Q{ 
-      WITH RECURSIVE ancestors AS (
+      WITH RECURSIVE ancestors_1 AS (
           SELECT
             id,
             parent_id,
-            0 AS depth
+            1 AS depth
           FROM 
             #{self.table_name}
-          WHERE id = #{id_1_safe} OR id = #{id_2_safe}
+          WHERE id = #{id_1_safe}
         UNION ALL
           SELECT
             t.id,
@@ -23,21 +25,56 @@ class Node < ApplicationRecord
           FROM
             #{self.table_name} AS t
           JOIN
-            ancestors AS a
+            ancestors_1 AS a
+          ON t.id = a.parent_id
+      ),
+      ancestors_2 AS (
+          SELECT
+            id,
+            parent_id,
+            1 AS depth
+          FROM 
+            #{self.table_name}
+          WHERE id = #{id_2_safe}
+        UNION ALL
+          SELECT
+            t.id,
+            t.parent_id,
+            a.depth + 1 AS depth
+          FROM
+            #{self.table_name} AS t
+          JOIN
+            ancestors_2 AS a
           ON t.id = a.parent_id
       ),
       common_ancestors AS (
         SELECT
           id
         FROM
-          ancestors 
+          (
+          SELECT 
+            id
+          FROM 
+            ancestors_1 
+          UNION ALL
+          SELECT
+            id
+          FROM
+            ancestors_2
+          ) t
         GROUP BY id
         HAVING COUNT(1) > 1
       )
       SELECT 
-        a.id
+        DISTINCT
+        a.id,
+        depth
       FROM
-        ancestors AS a
+        (
+        SELECT * FROM ancestors_1
+        UNION ALL
+        SELECT * FROM ancestors_2
+        ) a
       JOIN
         common_ancestors AS c
       ON
@@ -47,5 +84,32 @@ class Node < ApplicationRecord
       ;
     }
     result = ActiveRecord::Base.connection.exec_query(sql)
+  
+    if result.length > 0
+      root_id = result[result.length-1]["id"]
+      lowest_common_ancestor = result[0]["id"]
+
+      max_root_dist, max_lca_dist = 0, 0
+      result.each do |row|
+        if row["id"] == root_id && max_root_dist < row["depth"]
+          max_root_dist = row["depth"]
+        end
+        if row["id"] == lowest_common_ancestor && max_lca_dist < row["depth"]
+          max_lca_dist = row["depth"]
+        end
+      end
+
+      { 
+        root_id: root_id,
+        lowest_common_ancestor: lowest_common_ancestor,
+        depth: max_root_dist - max_lca_dist + 1
+      }
+    else
+      {
+        root_id: nil,
+        lowest_common_ancestor: nil,
+        depth: nil,
+      }
+    end
   end
 end
