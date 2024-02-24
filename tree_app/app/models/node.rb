@@ -112,4 +112,34 @@ class Node < ApplicationRecord
       }
     end
   end
+
+  def self.descendants_of(ids)
+    # returns descendents only, not including the provided ids
+    # self.table_name = '_nodes'
+    sql = ActiveRecord::Base.sanitize_sql_array(
+      [
+        %Q{ 
+          WITH RECURSIVE descendants AS (
+              SELECT
+                 id,
+                 parent_id
+              FROM
+                 #{self.table_name}
+              WHERE
+                 parent_id IN (?)
+              UNION ALL
+              SELECT
+                 t.id,
+                 t.parent_id
+              FROM
+                 #{self.table_name} t
+              JOIN descendants d ON t.parent_id = d.id
+          )
+          SELECT id FROM descendants;
+        },
+        ids
+      ]
+    )
+    ActiveRecord::Base.connection.exec_query(sql).rows.flatten.uniq
+  end
 end

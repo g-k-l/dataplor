@@ -9,4 +9,5 @@ Rails.application.routes.draw do
   # root "posts#index"
 
   get "common_ancestor" => "application#common_ancestor", as: :common_ancestor
+  get "birds" => "application#birds", as: :birds
 end
