@@ -7,4 +7,7 @@ Rails.application.routes.draw do
 
   # Defines the root path route ("/")
   # root "posts#index"
+
+  get "common_ancestor" => "application#common_ancestor", as: :common_ancestor
+  get "birds" => "application#birds", as: :birds
 end
